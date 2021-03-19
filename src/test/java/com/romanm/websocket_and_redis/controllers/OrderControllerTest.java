@@ -4,9 +4,9 @@ package com.romanm.websocket_and_redis.controllers;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.romanm.websocket_and_redis.components.WebsocketProducer;
 import com.romanm.websocket_and_redis.configs.BrokerConfiguration;
-import com.romanm.websocket_and_redis.models.orders.ResponseOrderData;
 import com.romanm.websocket_and_redis.models.orders.Order;
 import com.romanm.websocket_and_redis.models.orders.OrderBuilder;
+import com.romanm.websocket_and_redis.models.responses.ResponseObjectData;
 import com.romanm.websocket_and_redis.utils.OrderJsonConverter;
 import com.romanm.websocket_and_redis.utils.ValueChecker;
 import lombok.extern.slf4j.Slf4j;
@@ -86,9 +86,9 @@ public class OrderControllerTest {
                 .setOrderName("Заказ 101")
                 .setLocality("Хабаровск").setUserkod(UUID.randomUUID().toString()).build();
 
-        ResponseOrderData response = this.testRestTemplate.postForObject(URL_POST_ORDER, order, ResponseOrderData.class);
+        ResponseObjectData response = this.testRestTemplate.postForObject(URL_POST_ORDER, order, ResponseObjectData.class);
 
-        Assert.isTrue(response.getOrders() != null, "Ответ не содержит поле data!");
+        Assert.isTrue(response.getObjects() != null, "Ответ не содержит поле data!");
     }
 
     private List<Transport> createTransportClient() {

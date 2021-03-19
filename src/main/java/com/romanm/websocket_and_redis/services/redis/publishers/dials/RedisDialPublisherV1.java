@@ -1,5 +1,6 @@
 package com.romanm.websocket_and_redis.services.redis.publishers.dials;
 
+import com.romanm.websocket_and_redis.components.utils.RedisSetStreamFilter;
 import com.romanm.websocket_and_redis.constants.Prefixes;
 import com.romanm.websocket_and_redis.events.dials.DialEventPublisher;
 import com.romanm.websocket_and_redis.models.dials.Dial;
@@ -19,6 +20,7 @@ import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -29,7 +31,7 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
     private DialJsonConverter dialJsonConverter;
     private OrderJsonConverter orderJsonConverter;
     private Topic<Dial> dialTopic;
-
+    private RedisSetStreamFilter redisSetStreamFilter;
 
     @Autowired
     public RedisDialPublisherV1(Topic<Order> topic,
@@ -37,13 +39,15 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                                 RedisService redisService,
                                 DialEventPublisher dialEventPublisher,
                                 DialJsonConverter dialJsonConverter,
-                                OrderJsonConverter orderJsonConverter) {
+                                OrderJsonConverter orderJsonConverter,
+                                RedisSetStreamFilter redisSetStreamFilter) {
         this.topic = topic;
         this.redisService = redisService;
         this.dialEventPublisher = dialEventPublisher;
         this.dialJsonConverter = dialJsonConverter;
         this.orderJsonConverter = orderJsonConverter;
         this.dialTopic = dialTopic;
+        this.redisSetStreamFilter = redisSetStreamFilter;
     }
 
     @Override
@@ -56,7 +60,12 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                 String userkod = KeyFormatter.hideHyphenChar(dial.getOrder().getUserkod());
                 String selkod = KeyFormatter.hideHyphenChar(dial.getSelkod());
 
-                //if (redisService.getZSetRange(userkod, 0, -1).stream().map(itemJson -> (orderJsonConverter.convertJsonStrToObject((String)itemJson))))
+                Stream orderStream = redisSetStreamFilter.filterRedisSet(redisOperations.opsForZSet().range(userkod, 0, -1), dial.getOrder().getId());
+
+                if (orderStream.toArray().length == 0) {
+                    log.info("Can't create dial! There is no such order with orderid: "+dial.getOrder().getId());
+                    return null;
+                }
 
                 redisOperations.multi();
 
