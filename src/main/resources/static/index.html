@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <meta name="generator" content="PSPad editor, www.pspad.com">
+    <link rel="stylesheet" href="/css/common.css"/>
+    <title>Spring Boot WebSockets</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+  </head>
+  <body class="bg-light p-6">
+    <div class="container card p-8 m-6" id="card">
+      <h2 class="ml-5 mt-4">Заказы от пользователей</h2>
+      <h5 class="ml-5 mt-1 text-info">Spring Boot WebSocket and Redis</h5>
+      <hr/>
+      <div class="d-flex justify-content-center">
+         <div class="badge badge-danger m-1 " id="status"></div>
+      </div>
+      <div class="col-12">
+
+        <div class="row m-2">
+          <span class="mr-3">Тема:</span>
+          <select id="userSelector" onchange="onChangeSelector()">
+            <option selected>public</option>
+            <option>roman</option>
+            <option>user-1</option>
+          </select>
+        </div>
+        <hr>
+
+        <div class="row">
+          <Button class="m-2 btn btn-outline-success" onclick="connect()">Connect</Button>
+          <Button class="m-2 btn btn-outline-danger" onclick="disconnect()">Disconnect</Button>
+        </div>
+
+        <div class="row m-2">
+          <div class="input-group mb-3">
+            <input type="text" class="form-control" placeholder="Message" aria-label="Recipient's username" aria-describedby="button-addon2">
+            <div class="input-group-append">
+              <button class="btn btn-outline-success" onclick="chatMessage()" type="button" id="button-addon2">Button</button>
+            </div>
+          </div>
+        </div>
+
+
+      </div>
+
+
+      <table class="table table-sm">
+        <thead class="thead-light">
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Имя заказа</th>
+          <th scope="col">Код</th>
+          <th scope="col">Страна</th>
+          <th scope="col">Регион</th>
+          <th scope="col">Нас.пункт</th>
+          <th scope="col">Статус</th>
+        </tr>
+        </thead>
+        <tbody id="output_table">
+        </tbody>
+      </table>
+
+
+    </div>
+
+    <script src="/webjars/sockjs-client/1.1.2/sockjs.min.js" ></script>]
+    <script src="/webjars/stomp-websocket/2.3.3/stomp.min.js" ></script>
+
+    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+
+
+    <script>
+      var stompClient = null;
+      var isConnected = false;
+
+      function connect() {
+        let socket = new SockJS('http://localhost:8081/stomp');
+        if ((socket == null) || (socket == undefined)) {
+          //console.error("socket error!");
+          return;
+        }
+        //console.log("socket ok!");
+        stompClient = Stomp.over(socket);
+
+        stompClient.connect({}, function (frame) {
+             ///console.log('Connected: '+frame);
+             chatGreeting('Roman', 'Connected');
+
+          document.getElementById('status').innerHTML = 'Вы успешно подключились';
+
+          let cnt = 0;
+             stompClient.subscribe('/notifier/orders:rossiya.khabarovskii_krai.bikin', function(data) {
+               if (!data) return;
+               let json = JSON.parse(data.body);
+
+               cnt++;
+               let res_tbl = '<tr><th scope="row">'+cnt+'</th><td>'+json.name+'</td><td>'+json.code+'</td><td>'+json.country+
+                       '</td><td>'+json.region+'</td><td>'+json.locality+'</td><td>'+json.status+'</td></tr>';
+               $('#output_table').append(res_tbl);
+             });
+
+
+        })
+      };
+
+      function onChangeSelector() {
+        console.log("selector val: "+getSubTopic());
+      }
+
+      function disconnect() {
+        chatGreeting('Roman', 'Disconnected');
+        setTimeout(() => {
+          stompClient.disconnect();
+          document.getElementById('status').innerHTML = 'Вы отсоединились!';
+          console.log("Disconnected");
+        }, 1500);
+      }
+
+      function chatGreeting(username, status) {
+        stompClient.send("/todo-api-ws/chat.greeting", {}, JSON.stringify({'message': `Hello, ${username}!`, 'status': status}));
+      }
+
+      function chatMessage() {
+        stompClient.send('/todo/'+getSubTopic(), {}, JSON.stringify({'date': new Date().toUTCString(), 'msg': "Тестовое сообщение"}))
+      }
+
+      //startListening();
+      function getSubTopic() {
+          return $('#userSelector').val() || "public";
+      }
+
+      onChangeSelector();
+    </script>
+
+
+
+   </body>
+</html>
