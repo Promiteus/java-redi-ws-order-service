@@ -92,7 +92,7 @@
           document.getElementById('status').innerHTML = 'Вы успешно подключились';
 
           let cnt = 0;
-             stompClient.subscribe('/notifier/orders:rossiya.khabarovskii_krai.bikin', function(data) {
+             stompClient.subscribe('/orders/orders:rossiya.khabarovskii_krai.bikin', function(data) {
                if (!data) return;
                let json = JSON.parse(data.body);
 

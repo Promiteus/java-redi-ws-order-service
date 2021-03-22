@@ -3,6 +3,7 @@ package com.romanm.websocket_and_redis.services.redis.publishers.dials;
 import com.romanm.websocket_and_redis.components.utils.RedisSetStreamFilter;
 import com.romanm.websocket_and_redis.constants.Prefixes;
 import com.romanm.websocket_and_redis.events.dials.DialEventPublisher;
+import com.romanm.websocket_and_redis.events.orders.OrderEventPublisher;
 import com.romanm.websocket_and_redis.models.dials.Dial;
 import com.romanm.websocket_and_redis.models.orders.Order;
 import com.romanm.websocket_and_redis.services.redis.RedisService;
@@ -32,6 +33,7 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
     private OrderJsonConverter orderJsonConverter;
     private Topic<Dial> dialTopic;
     private RedisSetStreamFilter redisSetStreamFilter;
+    private OrderEventPublisher orderEventPublisher;
 
     @Autowired
     public RedisDialPublisherV1(Topic<Order> topic,
@@ -40,10 +42,12 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                                 DialEventPublisher dialEventPublisher,
                                 DialJsonConverter dialJsonConverter,
                                 OrderJsonConverter orderJsonConverter,
-                                RedisSetStreamFilter redisSetStreamFilter) {
+                                RedisSetStreamFilter redisSetStreamFilter,
+                                OrderEventPublisher orderEventPublisher) {
         this.topic = topic;
         this.redisService = redisService;
         this.dialEventPublisher = dialEventPublisher;
+        this.orderEventPublisher = orderEventPublisher;
         this.dialJsonConverter = dialJsonConverter;
         this.orderJsonConverter = orderJsonConverter;
         this.dialTopic = dialTopic;
@@ -72,13 +76,13 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                 //1. Удалить заказ из множества ZSET(userkod, ORDER{})
                 redisOperations.opsForZSet().remove(userkod, orderJsonConverter.convertObjectToJson(dial.getOrder()));
                 //2. Множество с заказми по региону для исполнителей (ZSET(topic, ORDER{})) также зачищается.
-                redisOperations.opsForZSet().remove(topic.getTopic(dial.getOrder()), dial.getOrder());
+                redisOperations.opsForZSet().remove(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
 
                 //3. Выставить заказу статус "PROCESSING"
                 dial.getOrder().setStatus(Order.STATUS.PROCESSING);
 
                 //4. Создать упорядоченное множество для исполнителей по сделкам: SET(selkod, DIAL{}, sortValue)
-                redisOperations.opsForZSet().add(selkod, dial, new Date().getTime());
+                redisOperations.opsForZSet().add(selkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
                 //5. Добаваить во множество из п.1. значение сделки: ZSET(userkod, DIAL{})
                 redisOperations.opsForZSet().add(userkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
                 //6. Занести занятый заказ в процессингову карту, связав ее с исполнителем заказа.
@@ -88,7 +92,7 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
 
                 //7. Отправить уведомление по каналу (orders:country.region.locality) websocket о смене статуса заказа ORDER{} с NEW на PROCESSING
                 //в канал открытых заказов.
-                dialEventPublisher.publishDialEvent(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
+                orderEventPublisher.publishOrderEvent(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
                 //8. Отправить уведомление по каналу websocket о создании сделки с исполнителем (dials:userkod)
                 dialEventPublisher.publishDialEvent(dialTopic.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
 

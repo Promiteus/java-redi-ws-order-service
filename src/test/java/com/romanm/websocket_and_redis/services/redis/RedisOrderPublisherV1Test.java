@@ -50,6 +50,7 @@ public class RedisOrderPublisherV1Test {
                 .setUserkod(UUID.randomUUID().toString())
                 .build();
 
+        //Создается 2-а одинаковых заказа
         redisOrderPublisher.publishOrder(order);
         redisOrderPublisher.publishOrder(order);
 

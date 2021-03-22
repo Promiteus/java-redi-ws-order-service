@@ -46,7 +46,7 @@ public class RedisSetStreamFilterTest {
                 .build();
 
        String userkod = KeyFormatter.hideHyphenChar(order.getUserkod());
-       //Доавить тестовый заказ упорядоченное множество
+       //Добавить тестовый заказ упорядоченное множество
        redisService.addZSetValue(userkod, orderJsonConverter.convertObjectToJson(order), new Date().getTime());
        //Повтор
        redisService.addZSetValue(userkod, orderJsonConverter.convertObjectToJson(order), new Date().getTime());

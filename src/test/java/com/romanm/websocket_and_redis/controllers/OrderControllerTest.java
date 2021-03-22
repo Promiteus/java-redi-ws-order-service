@@ -105,7 +105,7 @@ public class OrderControllerTest {
         StompSession stompSession = webSocketStompClient.connect(URL, new StompSessionHandlerAdapter() {
         }).get(1, TimeUnit.SECONDS);
 
-        stompSession.subscribe(brokerConfiguration.getBroker()+"/rossiya", new StompFrameHandler() {
+        stompSession.subscribe(brokerConfiguration.getOrderBroker()+"/rossiya", new StompFrameHandler() {
             @Override
             public Type getPayloadType(StompHeaders stompHeaders) {
                 return null;
@@ -130,7 +130,7 @@ public class OrderControllerTest {
                 .setOrderName("Заказ 101")
                 .setLocality("Хабаровск").setUserkod(UUID.randomUUID().toString()).build();
 
-        stompSession.send(brokerConfiguration.getBroker()+"/rossiya", order);
+        stompSession.send(brokerConfiguration.getOrderBroker()+"/rossiya", order);
 
         this.websocketProducer.sendOrderDataToTopic("rossiya", orderJsonConverter.convertObjectToJson(order));
 
