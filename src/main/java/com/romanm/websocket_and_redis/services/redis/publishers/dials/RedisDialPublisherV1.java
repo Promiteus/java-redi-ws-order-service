@@ -32,12 +32,14 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
     private DialJsonConverter dialJsonConverter;
     private OrderJsonConverter orderJsonConverter;
     private Topic<Dial> dialTopic;
+    private Topic<Dial> dialTopicExec;
     private RedisSetStreamFilter redisSetStreamFilter;
     private OrderEventPublisher orderEventPublisher;
 
     @Autowired
     public RedisDialPublisherV1(Topic<Order> topic,
                                 @Qualifier("userDialTopic") Topic<Dial> dialTopic,
+                                @Qualifier("executorDialTopic") Topic<Dial> dialTopicExec,
                                 RedisService redisService,
                                 DialEventPublisher dialEventPublisher,
                                 DialJsonConverter dialJsonConverter,
@@ -51,6 +53,7 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
         this.dialJsonConverter = dialJsonConverter;
         this.orderJsonConverter = orderJsonConverter;
         this.dialTopic = dialTopic;
+        this.dialTopicExec = dialTopicExec;
         this.redisSetStreamFilter = redisSetStreamFilter;
     }
 
@@ -102,5 +105,49 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
             }
         });
         return null;
+    }
+
+    @Override
+    public Dial deleteDial(Dial dial, boolean isUser) {
+        this.redisService.getRedisTemplate().execute(new SessionCallback() {
+            @SneakyThrows
+            @Override
+            public Object execute(RedisOperations redisOperations) throws DataAccessException {
+
+                String userkod = KeyFormatter.hideHyphenChar(dial.getOrder().getUserkod());
+                String selkod = KeyFormatter.hideHyphenChar(dial.getSelkod());
+
+                redisOperations.multi();
+
+                redisOperations.opsForZSet().remove(selkod, dialJsonConverter.convertObjectToJson(dial));
+
+                redisOperations.opsForZSet().remove(userkod, dialJsonConverter.convertObjectToJson(dial));
+
+                redisOperations.opsForHash().delete(Prefixes.REDIS_BUSY_ORDERS, dial.getOrder().getId());
+
+                dial.getOrder().setStatus(Order.STATUS.REJECTED);
+                if (!isUser) { //Если исполнитель, преобразовать сделку в заказ и вернуть в список заказов
+                    //Если отменил сделку исполнитель, то возвращаем заказ обратно в список с другими невыполненными
+                    Order order = dial.getOrder();
+                    order.setStatus(Order.STATUS.NEW);
+                    //1. Помещаем/создаем заявку пользователя-заказчика в специальное множество имени userkod
+                    redisOperations.opsForZSet().add(userkod, orderJsonConverter.convertObjectToJson(order), new Date().getTime());
+                    //2. Получаем транслированное имя региона и создаем структуру для чтения заказов исполнителями по регионам
+                    redisOperations.opsForZSet().add(topic.getTopic(order), orderJsonConverter.convertObjectToJson(order), new Date().getTime());
+                    //3. Отправить в канал websocket уведомление о смене статуса заказа (Новый заказ)
+                    orderEventPublisher.publishOrderEvent(topic.getTopic(order), orderJsonConverter.convertObjectToJson(order));
+                    //4. Отправить уведомление заказчику по каналу websocket об удалении сделки с исполнителем (user_dials:userkod)
+                    dialEventPublisher.publishDialEvent(dialTopic.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
+                } else { //Если заказчик
+                    //Отправить уведомление исполнителю по каналу websocket об удалении сделки с исполнителем (user_dials:userkod)
+                    dialEventPublisher.publishDialEvent(dialTopicExec.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
+                }
+
+                redisOperations.exec();
+
+                return null;
+            }
+        });
+        return dial;
     }
 }

@@ -4,9 +4,17 @@ import com.romanm.websocket_and_redis.models.dials.Dial;
 
 public interface RedisDialPublisher {
     /**
-     * * Публикация сделки
+     * Публикация сделки
      * @param dial Dial
      * @return Dial
      */
     Dial publishDial(Dial dial);
+
+    /**
+     * Удалить сделку
+     * @param dial Dial
+     * @param isUser boolean
+     * @return Dial
+     */
+    Dial deleteDial(Dial dial, boolean isUser);
 }
