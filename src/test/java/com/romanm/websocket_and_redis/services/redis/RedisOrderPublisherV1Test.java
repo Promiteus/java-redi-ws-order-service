@@ -326,4 +326,69 @@ public class RedisOrderPublisherV1Test {
         Assert.isTrue(redisService.getZSetSize(topicValue1) == 4,
                 String.format("Для темы '%s' должно быть 4-е записи!", topic.getTopic(order1)));
     }
+
+    @Test
+    public void deleteOrderTest() {
+        redisService.getRedisTemplate().getConnectionFactory().getConnection().flushAll();
+
+        Order order1 = OrderBuilder
+                .create()
+                .setOrderId("345-ad34-44")
+                .setCode(1245)
+                .setCountry("Россия")
+                .setRegion("Хабаровский край")
+                .setOrderName("Заказ 101")
+                .setLocality("Хабаровск") //Хабаровск
+                .setUserkod(UUID.randomUUID().toString())
+                .build();
+
+
+        Order order2 = OrderBuilder
+                .create()
+                .setOrderId("778-000-aaf1-a383")
+                .setCode(3477)
+                .setCountry("Россия")
+                .setRegion("Хабаровский край")
+                .setOrderName("Заказ 121")
+                .setLocality("Амурск") 
+                .setUserkod(UUID.randomUUID().toString())
+                .build();
+
+        redisOrderPublisher.publishOrder(order1);
+        redisOrderPublisher.publishOrder(order1);
+        redisOrderPublisher.publishOrder(order2);
+        redisOrderPublisher.publishOrder(order2);
+
+        String userkod1 = KeyFormatter.hideHyphenChar(order1.getUserkod());
+        String userkod2 = KeyFormatter.hideHyphenChar(order2.getUserkod());
+
+        log.info(Prefixes.TEST_PREFIX+"[After adding] Orders for order1 size for userkod: "+redisService.getZSetSize(userkod1));
+        log.info(Prefixes.TEST_PREFIX+"[After adding] Orders for order2 size for userkod: "+redisService.getZSetSize(userkod2));
+        log.info(Prefixes.TEST_PREFIX+"[After adding] Orders for order1 size for region: "+redisService.getZSetSize(topic.getTopic(order1)));
+        log.info(Prefixes.TEST_PREFIX+"[After adding] Orders for order2 size for region: "+redisService.getZSetSize(topic.getTopic(order2)));
+
+        redisOrderPublisher.deleteOrder(order1);
+        redisOrderPublisher.deleteOrder(order2);
+
+        log.info(Prefixes.TEST_PREFIX+"[After deleting] Orders for order1 size for userkod: "+redisService.getZSetSize(userkod1));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting] Orders for order2 size for userkod: "+redisService.getZSetSize(userkod2));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting] Orders for order1 size for region: "+redisService.getZSetSize(topic.getTopic(order1)));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting] Orders for order2 size for region: "+redisService.getZSetSize(topic.getTopic(order2)));
+
+        Assert.isTrue(redisService.getZSetSize(userkod1) == 0,
+                String.format("Пользователь '%s' должен иметь ноль записей заказов!", order1.getUserkod()));
+
+
+        Assert.isTrue(redisService.getZSetSize(userkod2) == 0,
+                String.format("Пользователь '%s' должен иметь ноль записей заказов!", order2.getUserkod()));
+
+
+        Assert.isTrue(redisService.getZSetSize(topic.getTopic(order2)) == 0,
+                String.format("Для темы '%s' должно быть 0 записей!", topic.getTopic(order1)));
+
+        //Темы у order1-4 одинаковые (темы - комбинация названий страны.края.города)
+        Assert.isTrue(redisService.getZSetSize(topic.getTopic(order2)) == 0,
+                String.format("Для темы '%s' должно быть 0 записей!", topic.getTopic(order2)));
+
+    }
 }
