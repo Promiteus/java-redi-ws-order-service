@@ -10,4 +10,11 @@ public interface RedisOrderPublisher {
      * @return Order
      */
     Order publishOrder(Order order);
+
+    /**
+     * * Метод удаления заказа
+     * @param order Order
+     * @return Order
+     */
+    Order deleteOrder(Order order);
 }

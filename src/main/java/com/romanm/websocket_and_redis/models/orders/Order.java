@@ -52,6 +52,6 @@ public class Order implements Serializable {
     }
 
     public static enum STATUS {
-        NEW, COMPLETED, PROCESSING
+        NEW, COMPLETED, PROCESSING, REJECTED
     }
 }

@@ -34,12 +34,11 @@ public class OrderController {
         return ResponseEntity.ok(new ResponseObjectData(List.of(this.redisOrderPublisher.publishOrder(order)), 200));
     }
 
-    @DeleteMapping(value = Prefixes.API_ORDER_DELETE_PATH)
-    public ResponseEntity<?> deleteOrder(@PathVariable(Prefixes.API_ID) String id) {
-        log.info("OrderController have got delete request for id: "+id);
+    @DeleteMapping(value = Prefixes.API_ORDER_PATH)
+    public ResponseEntity<?> deleteOrder(@RequestBody Order order) {
+        log.info("OrderController have got delete request for id: "+order.getId());
 
-
-        return ResponseEntity.ok().body(null);
+        return ResponseEntity.ok().body(new ResponseObjectData(List.of(this.redisOrderPublisher.deleteOrder(order)), 200));
     }
 
 }
