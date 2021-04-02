@@ -19,6 +19,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.stream.Stream;
@@ -61,7 +62,7 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
     public Dial publishDial(Dial dial) {
 
         this.redisService.getRedisTemplate().execute(new SessionCallback() {
-            @SneakyThrows
+            //@SneakyThrows
             @Override
             public Object execute(RedisOperations redisOperations) throws DataAccessException {
                 String userkod = KeyFormatter.hideHyphenChar(dial.getOrder().getUserkod());
@@ -74,32 +75,56 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                     return null;
                 }
 
-                redisOperations.multi();
+                try{
+                    //Отслеживать состояние заказов у заказчика с идентификатором userkod
+                    redisOperations.watch(userkod);
 
-                //1. Удалить заказ из множества ZSET(userkod, ORDER{})
-                redisOperations.opsForZSet().remove(userkod, orderJsonConverter.convertObjectToJson(dial.getOrder()));
-                //2. Множество с заказми по региону для исполнителей (ZSET(topic, ORDER{})) также зачищается.
-                redisOperations.opsForZSet().remove(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
+                    long size1 = redisSetStreamFilter.doubleFilterRedisSetSize(redisOperations.opsForZSet().range(userkod, 0, -1), dial.getOrder().getId(), "selkod");
+                    log.info("[Before removing]: redisSetStreamFilter size: "+size1);
 
-                //3. Выставить заказу статус "PROCESSING"
-                dial.getOrder().setStatus(Order.STATUS.PROCESSING);
+                    if (size1 > 0) {
+                        //Чтобы Order не оставался для региона и userkod для установленной сделки, то его нужно повторно удалить
+                        redisOperations.opsForZSet().remove(userkod, orderJsonConverter.convertObjectToJson(dial.getOrder()));
+                        redisOperations.opsForZSet().remove(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
+                        return null;
+                    };
 
-                //4. Создать упорядоченное множество для исполнителей по сделкам: SET(selkod, DIAL{}, sortValue)
-                redisOperations.opsForZSet().add(selkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
-                //5. Добаваить во множество из п.1. значение сделки: ZSET(userkod, DIAL{})
-                redisOperations.opsForZSet().add(userkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
-                //6. Занести занятый заказ в процессингову карту, связав ее с исполнителем заказа.
-                //Так можно будет понять, занят ли уже заказ другим исполнителем, на тот случай, если уведомление
-                //об этом вовремя не пришло.
-                redisOperations.opsForHash().put(Prefixes.REDIS_BUSY_ORDERS, dial.getOrder().getId(), dial.getSelkod());
+                    redisOperations.multi();
 
-                //7. Отправить уведомление по каналу (orders:country.region.locality) websocket о смене статуса заказа ORDER{} с NEW на PROCESSING
-                //в канал открытых заказов.
-                orderEventPublisher.publishOrderEvent(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
-                //8. Отправить уведомление по каналу websocket о создании сделки с исполнителем (dials:userkod)
-                dialEventPublisher.publishDialEvent(dialTopic.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
+                    //1. Удалить заказ из множества ZSET(userkod, ORDER{})
+                    redisOperations.opsForZSet().remove(userkod, orderJsonConverter.convertObjectToJson(dial.getOrder()));
 
-                redisOperations.exec();
+                    long size2 = redisSetStreamFilter.doubleFilterRedisSetSize(redisOperations.opsForZSet().range(userkod, 0, -1), dial.getOrder().getId(), "selkod");
+                    log.info("[After removing]: redisSetStreamFilter size: "+size2);
+
+                    //2. Множество с заказми по региону для исполнителей (ZSET(topic, ORDER{})) также зачищается.
+                    log.info("Deleting topic region: "+dial.getOrder().getStatus());
+                    redisOperations.opsForZSet().remove(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
+
+                    //3. Выставить заказу статус "PROCESSING"
+                    dial.getOrder().setStatus(Order.STATUS.PROCESSING);
+
+                    //4. Создать упорядоченное множество для исполнителей по сделкам: SET(selkod, DIAL{}, sortValue)
+                    redisOperations.opsForZSet().add(selkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
+
+                    //5. Добаваить во множество из п.1. значение сделки: ZSET(userkod, DIAL{})
+                    redisOperations.opsForZSet().add(userkod, dialJsonConverter.convertObjectToJson(dial), new Date().getTime());
+                    //6. Занести занятый заказ в процессингову карту, связав ее с исполнителем заказа.
+                    //Так можно будет понять, занят ли уже заказ другим исполнителем, на тот случай, если уведомление
+                    //об этом вовремя не пришло.
+                    redisOperations.opsForHash().put(Prefixes.REDIS_BUSY_ORDERS, dial.getOrder().getId(), dial.getSelkod());
+
+                    //7. Отправить уведомление по каналу (orders:country.region.locality) websocket о смене статуса заказа ORDER{} с NEW на PROCESSING
+                    //в канал открытых заказов.
+                    orderEventPublisher.publishOrderEvent(topic.getTopic(dial.getOrder()), orderJsonConverter.convertObjectToJson(dial.getOrder()));
+                    //8. Отправить уведомление по каналу websocket о создании сделки с исполнителем (dials:userkod)
+                    dialEventPublisher.publishDialEvent(dialTopic.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
+
+                    redisOperations.exec();
+                }catch (Exception e){
+                    log.info("It was rollback!!!");
+                    redisOperations.discard();
+                }
 
                 return null;
             }
@@ -117,26 +142,30 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                 String userkod = KeyFormatter.hideHyphenChar(dial.getOrder().getUserkod());
                 String selkod = KeyFormatter.hideHyphenChar(dial.getSelkod());
 
+                redisOperations.watch(selkod);
+                redisOperations.watch(userkod);
+
                 redisOperations.multi();
-
+                //1. Удалить сделку из множества для исполнителя
                 redisOperations.opsForZSet().remove(selkod, dialJsonConverter.convertObjectToJson(dial));
-
+                //2. Удалить связь исполнителя и заказчика из множества
                 redisOperations.opsForZSet().remove(userkod, dialJsonConverter.convertObjectToJson(dial));
-
+                //3. Удалить из карты с именем REDIS_BUSY_ORDERS код заказа и объект сделки
                 redisOperations.opsForHash().delete(Prefixes.REDIS_BUSY_ORDERS, dial.getOrder().getId());
 
+                //4. Сменить статус сделки на REJECTED (отклонена) и переместить ее обратно в заказы или не делать ничего
                 dial.getOrder().setStatus(Order.STATUS.REJECTED);
                 if (!isUser) { //Если исполнитель, преобразовать сделку в заказ и вернуть в список заказов
                     //Если отменил сделку исполнитель, то возвращаем заказ обратно в список с другими невыполненными
                     Order order = dial.getOrder();
                     order.setStatus(Order.STATUS.NEW);
-                    //1. Помещаем/создаем заявку пользователя-заказчика в специальное множество имени userkod
+                    //Помещаем/создаем заявку пользователя-заказчика в специальное множество имени userkod
                     redisOperations.opsForZSet().add(userkod, orderJsonConverter.convertObjectToJson(order), new Date().getTime());
-                    //2. Получаем транслированное имя региона и создаем структуру для чтения заказов исполнителями по регионам
+                    //Получаем транслированное имя региона и создаем структуру для чтения заказов исполнителями по регионам
                     redisOperations.opsForZSet().add(topic.getTopic(order), orderJsonConverter.convertObjectToJson(order), new Date().getTime());
-                    //3. Отправить в канал websocket уведомление о смене статуса заказа (Новый заказ)
+                    //Отправить в канал websocket уведомление о смене статуса заказа (Новый заказ)
                     orderEventPublisher.publishOrderEvent(topic.getTopic(order), orderJsonConverter.convertObjectToJson(order));
-                    //4. Отправить уведомление заказчику по каналу websocket об удалении сделки с исполнителем (user_dials:userkod)
+                    //Отправить уведомление заказчику по каналу websocket об удалении сделки с исполнителем (user_dials:userkod)
                     dialEventPublisher.publishDialEvent(dialTopic.getTopic(dial), dialJsonConverter.convertObjectToJson(dial));
                 } else { //Если заказчик
                     //Отправить уведомление исполнителю по каналу websocket об удалении сделки с исполнителем (user_dials:userkod)

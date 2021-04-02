@@ -12,7 +12,7 @@ public class DialEventPublisher {
     private ApplicationEventPublisher applicationEventPublisher;
 
     public void publishDialEvent(String channel, String data) {
-      log.info(String.format("Publishing dial event with channel [%s] and data [%s]", channel, data));
+     // log.info(String.format("Publishing dial event with channel [%s] and data [%s]", channel, data));
       DialPublishEvent dialPublishEvent = new DialPublishEvent(this, channel, data);
       applicationEventPublisher.publishEvent(dialPublishEvent);
     }

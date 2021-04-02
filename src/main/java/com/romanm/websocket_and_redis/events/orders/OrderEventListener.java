@@ -16,7 +16,7 @@ public class OrderEventListener implements ApplicationListener<OrderPublishEvent
 
     @Override
     public void onApplicationEvent(OrderPublishEvent orderPublishEvent) {
-        log.info(String.format("Sending order over websocket channel [%s] ", orderPublishEvent.getChannel()));
+        //log.info(String.format("Sending order over websocket channel [%s] ", orderPublishEvent.getChannel()));
         this.websocketProducer.sendOrderDataToTopic(orderPublishEvent.getChannel(), orderPublishEvent.getData());
     }
 }

@@ -16,7 +16,7 @@ public class DialEventListener implements ApplicationListener<DialPublishEvent> 
 
     @Override
     public void onApplicationEvent(DialPublishEvent orderPublishEvent) {
-        log.info(String.format("Sending order over websocket channel [%s] ", orderPublishEvent.getChannel()));
+       // log.info(String.format("Sending Dial over websocket channel [%s] ", orderPublishEvent.getChannel()));
         this.websocketProducer.sendDialDataToTopic(orderPublishEvent.getChannel(), orderPublishEvent.getData());
     }
 }

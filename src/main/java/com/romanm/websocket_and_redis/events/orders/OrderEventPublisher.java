@@ -12,7 +12,7 @@ public class OrderEventPublisher {
     private ApplicationEventPublisher applicationEventPublisher;
 
     public void publishOrderEvent(String channel, String data) {
-      log.info(String.format("Publishing order event with channel [%s] and data [%s]", channel, data));
+     // log.info(String.format("Publishing order event with channel [%s] and data [%s]", channel, data));
       OrderPublishEvent orderPublishEvent = new OrderPublishEvent(this, channel, data);
       applicationEventPublisher.publishEvent(orderPublishEvent);
     }
