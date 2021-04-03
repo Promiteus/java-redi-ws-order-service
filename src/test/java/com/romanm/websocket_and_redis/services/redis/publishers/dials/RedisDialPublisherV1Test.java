@@ -244,6 +244,11 @@ public class RedisDialPublisherV1Test {
                 this.redisService.getZSetSize(selkod5));
         log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
                 this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+
+        Assert.isTrue(this.redisService.getZSetSize(userkod) == 1, "Orders ZSET(userkod) must have size = 1!");
+        Assert.notEmpty(this.redisService.getZSetRange(userkod, 0, -1), "ZSET(userkod) must have one dial!");
+        Assert.isTrue(this.redisService.getZSetSize(topicRegion) == 0, "ZSET(region) must be empty!");
+        Assert.isTrue(this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()) != null, "HASH(PROCESSING) must have selkod!");
     }
 
     @Test
@@ -368,7 +373,8 @@ public class RedisDialPublisherV1Test {
         @Override
         public void run() {
             log.info(Prefixes.TEST_PREFIX+this.getClass().getSimpleName()+" Puplishing dial! Seconds: "+ System.currentTimeMillis()/1000);
-            rdp.publishDial(dial);
+            Dial dialRes = rdp.publishDial(dial);
+            //log.info(Thread.currentThread().getId()+" "+dialRes);
         }
     }
 }

@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -180,5 +181,32 @@ public class RedisRepository {
      */
     public Long removeZSetItem(Object key, Object... items) {
         return this.redisTemplate.opsForZSet().remove(key, items);
+    }
+
+    /**
+     *
+     * @param key Object
+     */
+    public void watch(Object key) {
+        this.redisTemplate.watch(key);
+    }
+
+    /**
+     *
+     */
+    public void multi() {
+        this.redisTemplate.multi();
+    }
+
+    /**
+     *
+     * @return List<Object>
+     */
+    public List<Object> exec() {
+       return this.redisTemplate.exec();
+    }
+
+    public void discard() {
+        this.redisTemplate.discard();
     }
 }

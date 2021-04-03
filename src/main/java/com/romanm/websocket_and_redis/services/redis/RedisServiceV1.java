@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -16,6 +17,9 @@ public class RedisServiceV1 implements RedisService {
     public RedisServiceV1(RedisRepository redisRepository) {
         this.redisRepository = redisRepository;
     }
+
+    @Override
+    public void watch(Object key) { redisRepository.watch(key); }
 
     /*Redis SET(NAME, VALUE) - упорядоченное множество.*/
     //-------------------------------------------------
@@ -100,6 +104,21 @@ public class RedisServiceV1 implements RedisService {
     @Override
     public Long removeZSetItem(Object key, Object... items) {
         return this.redisRepository.removeZSetItem(key, items);
+    }
+
+    @Override
+    public void multi() {
+        this.redisRepository.multi();
+    }
+
+    @Override
+    public List<Object> exec() {
+        return this.redisRepository.exec();
+    }
+
+    @Override
+    public void discard() {
+        this.redisRepository.discard();
     }
     //-------------------------------------------------
 
