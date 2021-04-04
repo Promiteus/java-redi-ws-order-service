@@ -1,5 +1,6 @@
 package com.romanm.websocket_and_redis.services.redis.publishers.dials;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.romanm.websocket_and_redis.constants.Prefixes;
 import com.romanm.websocket_and_redis.models.dials.Dial;
 import com.romanm.websocket_and_redis.models.orders.Order;
@@ -8,6 +9,7 @@ import com.romanm.websocket_and_redis.services.redis.RedisService;
 import com.romanm.websocket_and_redis.services.redis.publishers.orders.RedisOrderPublisher;
 import com.romanm.websocket_and_redis.services.topics.Topic;
 import com.romanm.websocket_and_redis.utils.KeyFormatter;
+import com.romanm.websocket_and_redis.utils.OrderJsonConverter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
@@ -41,6 +43,9 @@ public class RedisDialPublisherV1Test {
 
     @Autowired
     private RedisOrderPublisher redisOrderPublisher;
+
+    @Autowired
+    private OrderJsonConverter orderJsonConverter;
 
     @Test
     public void publishDialIfUncknownOrder() {
@@ -357,6 +362,151 @@ public class RedisDialPublisherV1Test {
                 this.redisService.getZSetSize(selkod5));
         log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
                 this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+    }
+
+    @Test
+    public void deleteDialByUser() {
+        redisService.getRedisTemplate().getConnectionFactory().getConnection().flushAll();
+
+        Order order = null;
+
+        //Создаем объект заказа
+        order = OrderBuilder
+                .create()
+                .setOrderId("345-ad34-44")
+                .setCode(1245)
+                .setStatus(Order.STATUS.NEW)
+                .setCountry("Россия")
+                .setRegion("Хабаровский край")
+                .setOrderName("Заказ 101")
+                .setLocality("Хабаровск")
+                .setUserkod(UUID.randomUUID().toString())
+                .build();
+
+        String userkod = KeyFormatter.hideHyphenChar(order.getUserkod());
+        String topicRegion = topic.getTopic(order);
+
+        log.info(Prefixes.TEST_PREFIX+"[Before publish ORDER] Orders ZSET(userkod, ORDER) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[Before publish ORDER] Orders ZSET(region, ORDER) Size: "+
+                this.redisService.getZSetSize(topicRegion));
+
+
+        //Создается 1 заказ
+        redisOrderPublisher.publishOrder(order);
+
+        log.info(Prefixes.TEST_PREFIX+"[After publish ORDER] Orders ZSET(userkod) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish ORDER] Orders ZSET(region) Size: "+
+                this.redisService.getZSetSize(topicRegion));
+        log.info(Prefixes.TEST_PREFIX+"Order: "+this.redisService.getZSetRange(userkod, 0, -1));
+
+
+        String selkod = UUID.randomUUID().toString();
+        Dial dial1 = new Dial(selkod, order);
+        selkod = KeyFormatter.hideHyphenChar(selkod);
+
+        log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+
+        redisDialPublisher.publishDial(dial1);
+
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
+                this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+
+        redisDialPublisher.deleteDial(dial1, true);
+
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL userkod] Order ZSET("+userkod+", ORDER) Size: "+
+                this.redisService.getZSetRange(userkod, 0, -1));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL] Dials HASH(PROCESSING) Values: "+
+                this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+
+        Assert.isTrue(this.redisService.getZSetSize(selkod) == 0, "Dial SET of executor must be empty!");
+        Assert.isTrue(this.redisService.getZSetSize(userkod) == 0, "Order SET of user must be empty!");
+        Assert.isTrue(this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()) == null, "Dial HASHMAP of executor must be empty!");
+    }
+
+    @Test
+    public void deleteDialByExecutor() throws JsonProcessingException {
+        redisService.getRedisTemplate().getConnectionFactory().getConnection().flushAll();
+
+        Order order = null;
+
+        //Создаем объект заказа
+        order = OrderBuilder
+                .create()
+                .setOrderId("345-ad34-44")
+                .setCode(1245)
+                .setStatus(Order.STATUS.NEW)
+                .setCountry("Россия")
+                .setRegion("Хабаровский край")
+                .setOrderName("Заказ 101")
+                .setLocality("Хабаровск")
+                .setUserkod(UUID.randomUUID().toString())
+                .build();
+
+        String userkod = KeyFormatter.hideHyphenChar(order.getUserkod());
+        String topicRegion = topic.getTopic(order);
+
+        log.info(Prefixes.TEST_PREFIX+"[Before publish ORDER] Orders ZSET(userkod, ORDER) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[Before publish ORDER] Orders ZSET(region, ORDER) Size: "+
+                this.redisService.getZSetSize(topicRegion));
+
+
+        //Создается 1 заказ
+        redisOrderPublisher.publishOrder(order);
+
+        log.info(Prefixes.TEST_PREFIX+"[After publish ORDER] Orders ZSET(userkod) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish ORDER] Orders ZSET(region) Size: "+
+                this.redisService.getZSetSize(topicRegion));
+        log.info(Prefixes.TEST_PREFIX+"Order: "+this.redisService.getZSetRange(userkod, 0, -1));
+
+
+        String selkod = UUID.randomUUID().toString();
+        Dial dial1 = new Dial(selkod, order);
+        selkod = KeyFormatter.hideHyphenChar(selkod);
+
+        log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+
+        redisDialPublisher.publishDial(dial1);
+
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
+                this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+
+        redisDialPublisher.deleteDial(dial1, false);
+
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(selkod));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL userkod] Dials ZSET("+userkod+", DIAL) Size: "+
+                this.redisService.getZSetSize(userkod));
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL userkod] Order object ("+userkod+", ORDER) Size: "+
+                this.redisService.getZSetRange(userkod, 0, -1).toArray()[0]);
+        log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL] Dials HASH(PROCESSING) Values: "+
+                this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
+
+        Assert.isTrue(this.redisService.getZSetSize(selkod) == 0, "Dial SET of executor must be empty!");
+        Assert.isTrue(this.redisService.getZSetSize(userkod) == 1, "Order SET of user must have one record!");
+        Assert.isTrue(this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()) == null, "Dial HASHMAP of executor must be empty!");
+        Assert.isTrue(orderJsonConverter.convertJsonStrToObject(this.redisService.getZSetRange(userkod, 0, -1).toArray()[0].toString()).getStatus() == Order.STATUS.NEW, "Order SET of user must have order status is NEW!");
     }
 
     static class DialCreator implements Runnable {
