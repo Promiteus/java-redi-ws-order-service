@@ -49,9 +49,11 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
     @Override
     public Dial publishDial(Dial dial) {
 
-        this.redisService.getRedisTemplate().execute(new SessionCallback() {
+       return (Dial) this.redisService.getRedisTemplate().execute(new SessionCallback() {
             @Override
             public Object execute(RedisOperations redisOperations) throws DataAccessException {
+                Dial resDial = null;
+
                 String userkod = KeyFormatter.hideHyphenChar(dial.getOrder().getUserkod());
                 String selkod = KeyFormatter.hideHyphenChar(dial.getSelkod());
 
@@ -89,26 +91,37 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
 
                     redisOperations.exec();
 
+                    resDial = dial;
                     dialOrderHandler.notifyDialOrderStatus(dial, dialOrderHandler.isSuccessDial(dial));
                 }catch (Exception e){
                     log.info("[publishDial] It was rollback!!!");
                     redisOperations.discard();
                 }
 
-                return dial;
+                return findDialByOrderId(dial, redisOperations);
             }
         });
-       return null;
+
     }
 
     private long findRecordInSet(String key1, String key2, Dial dial, RedisOperations redisOperations) {
         return redisSetStreamFilter.doubleFilterRedisSetSize(redisOperations.opsForZSet().range(key1, 0, -1), dial.getOrder().getId(), key2);
     }
 
+    private Dial findDialByOrderId(Dial dial, RedisOperations redisOps) {
+        Dial dialRes = null;
+        Stream stream = redisSetStreamFilter.filterRedisSet(redisOps.opsForZSet().range(KeyFormatter.hideHyphenChar(dial.getSelkod()), 0, -1), dial.getOrder().getId());
+        try {
+            dialRes = dialJsonConverter.convertJsonStrToObject(stream.findFirst().get().toString());
+        } catch (Exception e) {
+            log.info("findDialByOrderId error: "+e.getMessage());
+        }
+        return dialRes;
+    }
 
     @Override
-    public Dial deleteDial(Dial dial, boolean isUser) {
-        this.redisService.getRedisTemplate().execute(new SessionCallback() {
+    public boolean deleteDial(Dial dial, boolean isUser) {
+        return (boolean) this.redisService.getRedisTemplate().execute(new SessionCallback() {
             @Override
             public Object execute(RedisOperations redisOperations) throws DataAccessException {
 
@@ -148,10 +161,10 @@ public class RedisDialPublisherV1 implements RedisDialPublisher {
                    redisOperations.discard();
                 }
 
-                return null;
+
+                return findDialByOrderId(dial, redisOperations) == null;
             }
         });
-        return dial;
     }
 
 

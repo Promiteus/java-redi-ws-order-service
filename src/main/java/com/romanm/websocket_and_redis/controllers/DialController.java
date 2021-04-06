@@ -2,7 +2,9 @@ package com.romanm.websocket_and_redis.controllers;
 
 import com.romanm.websocket_and_redis.constants.Prefixes;
 import com.romanm.websocket_and_redis.models.dials.Dial;
-import com.romanm.websocket_and_redis.models.responses.ResponseObjectData;
+import com.romanm.websocket_and_redis.models.responses.ResponseData;
+import com.romanm.websocket_and_redis.models.responses.ResponseDeleteStatus;
+import com.romanm.websocket_and_redis.models.responses.ResponseObjectsData;
 import com.romanm.websocket_and_redis.services.redis.publishers.dials.RedisDialPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,22 +29,33 @@ public class DialController {
     @PostMapping(value = Prefixes.API_DIAL_PATH)
     public ResponseEntity<?> postDial(@RequestBody Dial dial) {
         log.info("DialController have got post order: {}", dial);
-
-
-        return ResponseEntity.ok(new ResponseObjectData(List.of(this.redisDialBublisher.publishDial(dial)), 200));
+        return ResponseEntity.ok(new ResponseObjectsData(List.of(this.redisDialBublisher.publishDial(dial)), 200));
     }
 
     @DeleteMapping(value = Prefixes.API_DIAL_DELETE_BY_USER_PATH)
-    public ResponseEntity<?> deleteUserDial(@PathVariable(Prefixes.API_ID) String id) {
-        log.info("DialController have got delete request from user for id: "+id);
+    public ResponseEntity<?> deleteUserDial(@RequestBody Dial dial) {
+        log.info("DialController have got delete request from user: {}: ", dial);
 
-        return ResponseEntity.ok().body(null);
+        return ResponseEntity
+                .ok()
+                .body(new ResponseData(new ResponseDeleteStatus(this.redisDialBublisher.deleteDial(dial, true)), 200));
     }
 
     @DeleteMapping(value = Prefixes.API_DIAL_DELETE_BY_EXECUTOR_PATH)
-    public ResponseEntity<?> deleteExecutorDial(@PathVariable(Prefixes.API_ID) String id) {
-        log.info("DialController have got delete request from user for id: "+id);
+    public ResponseEntity<?> deleteExecutorDial(@RequestBody Dial dial) {
+        log.info("DialController have got delete request from executor: {}", dial);
+        return ResponseEntity
+                .ok()
+                .body(new ResponseData(new ResponseDeleteStatus(this.redisDialBublisher.deleteDial(dial, false)), 200));
+    }
 
-        return ResponseEntity.ok().body(null);
+    @GetMapping(value = Prefixes.API_DIAL_PATH+Prefixes.API_SLASH_ID)
+    public ResponseEntity<?> getAllDialsOfExecutor(@PathVariable(Prefixes.API_ID) String selkod) {
+        return ResponseEntity.ok(null);
+    }
+
+    @GetMapping(value = Prefixes.API_DIAL_PATH+Prefixes.API_PAGE+Prefixes.API_PAGE)
+    public ResponseEntity<?> getPageDialsOfExecutor(@PathVariable(Prefixes.API_ID) String selkod) {
+        return ResponseEntity.ok(null);
     }
 }

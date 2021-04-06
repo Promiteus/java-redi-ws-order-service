@@ -16,5 +16,5 @@ public interface RedisDialPublisher {
      * @param isUser boolean
      * @return Dial
      */
-    Dial deleteDial(Dial dial, boolean isUser);
+    boolean deleteDial(Dial dial, boolean isUser);
 }

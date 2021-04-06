@@ -40,7 +40,7 @@ public class RedisOrderPublisherV1 implements RedisOrderPublisher {
     public Order publishOrder(Order order) {
 
         //Выполнить блок кода в одной транзакции для публикации заказа
-        this.redisService.getRedisTemplate().execute(new SessionCallback() {
+        return (Order) this.redisService.getRedisTemplate().execute(new SessionCallback() {
             @Override
             public Object execute(RedisOperations redisOperations) throws DataAccessException {
 
@@ -64,14 +64,12 @@ public class RedisOrderPublisherV1 implements RedisOrderPublisher {
                 return null;
             }
         });
-
-        return order;
     }
 
     @Override
     public Order deleteOrder(Order order) {
         //Выполнить блок кода в одной транзакции для удаления заказа
-        this.redisService.getRedisTemplate().execute(new SessionCallback() {
+        return (Order) this.redisService.getRedisTemplate().execute(new SessionCallback() {
             @Override
             public Object execute(RedisOperations redisOperations) throws DataAccessException {
 
@@ -93,11 +91,11 @@ public class RedisOrderPublisherV1 implements RedisOrderPublisher {
                     redisOperations.discard();
                 }
 
-                return null;
+                return order;
             }
         });
 
-        return order;
+
     }
 
 }

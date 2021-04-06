@@ -305,35 +305,40 @@ public class RedisDialPublisherV1Test {
         selkod = KeyFormatter.hideHyphenChar(selkod);
         log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL] Dials ZSET("+selkod+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod));
-        redisDialPublisher.publishDial(dial1);
+        Dial dialRes1 = redisDialPublisher.publishDial(dial1);
+        log.info("Publish dial1 res: {}", dialRes1);
 
         String selkod2 = UUID.randomUUID().toString();
         Dial dial2 = new Dial(selkod2, order);
         selkod2 = KeyFormatter.hideHyphenChar(selkod2);
         log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL] Dials ZSET("+selkod2+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod2));
-        redisDialPublisher.publishDial(dial2);
+        Dial dialRes2 = redisDialPublisher.publishDial(dial2);
+        log.info("Publish dial2 res: {}", dialRes2);
 
         String selkod3 = UUID.randomUUID().toString();
         Dial dial3 = new Dial(selkod3, order);
         selkod3 = KeyFormatter.hideHyphenChar(selkod3);
         log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL] Dials ZSET("+selkod3+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod3));
-        redisDialPublisher.publishDial(dial3);
+        Dial dialRes3 = redisDialPublisher.publishDial(dial3);
+        log.info("Publish dial3 res: {}", dialRes3);
 
         String selkod4 = UUID.randomUUID().toString();
         Dial dial4 = new Dial(selkod4, order);
         selkod4 = KeyFormatter.hideHyphenChar(selkod4);
         log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL] Dials ZSET("+selkod4+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod4));
-        redisDialPublisher.publishDial(dial4);
+        Dial dialRes4 = redisDialPublisher.publishDial(dial4);
+        log.info("Publish dial4 res: {}", dialRes4);
 
         String selkod5 = UUID.randomUUID().toString();
         Dial dial5 = new Dial(selkod5, order);
         selkod5 = KeyFormatter.hideHyphenChar(selkod5);
         log.info(Prefixes.TEST_PREFIX+"[Before publish DIAL] Dials ZSET("+selkod5+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod5));
-        redisDialPublisher.publishDial(dial5);
+        Dial dialRes5 = redisDialPublisher.publishDial(dial5);
+        log.info("Publish dial5 res: {}", dialRes5);
 
         /*dial = new Dial(UUID.randomUUID().toString(), order);
         service.execute(new DialCreator(redisDialPublisher, dial));
@@ -420,7 +425,8 @@ public class RedisDialPublisherV1Test {
         log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
                 this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
 
-        redisDialPublisher.deleteDial(dial1, true);
+        boolean res = redisDialPublisher.deleteDial(dial1, true);
+        log.info("deleteDial res: "+res);
 
         log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod));
@@ -484,6 +490,7 @@ public class RedisDialPublisherV1Test {
                 this.redisService.getZSetSize(userkod));
 
         redisDialPublisher.publishDial(dial1);
+        redisDialPublisher.publishDial(dial1); //Повтор для проверки на повторяемость
 
         log.info(Prefixes.TEST_PREFIX+"[After publish DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod));
@@ -492,7 +499,8 @@ public class RedisDialPublisherV1Test {
         log.info(Prefixes.TEST_PREFIX+"[After publish DIAL] Dials HASH(PROCESSING) Values: "+
                 this.redisService.getHashMapItem(Prefixes.REDIS_BUSY_ORDERS, dial1.getOrder().getId()));
 
-        redisDialPublisher.deleteDial(dial1, false);
+        boolean res = redisDialPublisher.deleteDial(dial1, false);
+        log.info("deleteDial res: "+res);
 
         log.info(Prefixes.TEST_PREFIX+"[After deleting DIAL selkod] Dials ZSET("+selkod+", DIAL) Size: "+
                 this.redisService.getZSetSize(selkod));
@@ -524,6 +532,7 @@ public class RedisDialPublisherV1Test {
         public void run() {
             log.info(Prefixes.TEST_PREFIX+this.getClass().getSimpleName()+" Puplishing dial! Seconds: "+ System.currentTimeMillis()/1000);
             Dial dialRes = rdp.publishDial(dial);
+            log.info(this.getClass().getSimpleName()+" Publish dial in thread res: {}", dialRes);
             //log.info(Thread.currentThread().getId()+" "+dialRes);
         }
     }
