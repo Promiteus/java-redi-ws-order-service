@@ -1,13 +1,12 @@
 package com.romanm.websocket_and_redis.services.redis;
 
 import com.romanm.websocket_and_redis.repositories.RedisRepository;
+import com.romanm.websocket_and_redis.utils.KeyFormatter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 @Service("redisServiceV1")
 public class RedisServiceV1 implements RedisService {
@@ -119,6 +118,15 @@ public class RedisServiceV1 implements RedisService {
     @Override
     public void discard() {
         this.redisRepository.discard();
+    }
+
+    @Override
+    public Set<?> getPagebleZSETValue(String key, long page, long pageSize) {
+        List<Long> pagePointer = KeyFormatter.pagePointer(page, pageSize);
+        if ((pagePointer.size() > 0) && (Optional.ofNullable(key).isPresent())) {
+            return this.redisRepository.getZSetRange(KeyFormatter.hideHyphenChar(key), pagePointer.get(0), pagePointer.get(1));
+        }
+        return new HashSet<>();
     }
     //-------------------------------------------------
 

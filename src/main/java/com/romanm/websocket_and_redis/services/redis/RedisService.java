@@ -26,6 +26,7 @@ public interface RedisService {
     void multi();
     List<Object> exec();
     void discard();
+    Set<?> getPagebleZSETValue(String key, long page, long pageSize);
 
 
     RedisTemplate getRedisTemplate();
