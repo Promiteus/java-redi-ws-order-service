@@ -6,7 +6,7 @@ import com.romanm.websocket_and_redis.components.WebsocketProducer;
 import com.romanm.websocket_and_redis.configs.BrokerConfiguration;
 import com.romanm.websocket_and_redis.models.orders.Order;
 import com.romanm.websocket_and_redis.models.orders.OrderBuilder;
-import com.romanm.websocket_and_redis.models.responses.ResponseObjectData;
+import com.romanm.websocket_and_redis.models.responses.ResponseObjectsData;
 import com.romanm.websocket_and_redis.utils.OrderJsonConverter;
 import com.romanm.websocket_and_redis.utils.ValueChecker;
 import lombok.extern.slf4j.Slf4j;
@@ -86,7 +86,7 @@ public class OrderControllerTest {
                 .setOrderName("Заказ 101")
                 .setLocality("Хабаровск").setUserkod(UUID.randomUUID().toString()).build();
 
-        ResponseObjectData response = this.testRestTemplate.postForObject(URL_POST_ORDER, order, ResponseObjectData.class);
+        ResponseObjectsData response = this.testRestTemplate.postForObject(URL_POST_ORDER, order, ResponseObjectsData.class);
 
         Assert.isTrue(response.getObjects() != null, "Ответ не содержит поле data!");
     }
